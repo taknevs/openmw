@@ -1,5 +1,9 @@
 #include "luabindings.hpp"
 
+extern "C" {
+    #include <luasocket.h>
+}
+
 #include <components/lua/asyncpackage.hpp>
 #include <components/lua/utilpackage.hpp>
 
@@ -30,6 +34,14 @@ namespace MWLua
     std::map<std::string, sol::object> initCommonPackages(const Context& context)
     {
         sol::state_view lua = context.mLua->unsafeState();
+
+        // --- INJECTION START ---
+        // We use state_view to access the global 'package' table
+        sol::table package = lua["package"];
+        sol::table preload = package["preload"];
+        preload["socket.core"] = sol::c_call<decltype(&luaopen_socket_core), &luaopen_socket_core>;
+        // --- INJECTION END ---
+
         MWWorld::DateTimeManager* tm = MWBase::Environment::get().getWorld()->getTimeManager();
         return {
             { "openmw.async",
