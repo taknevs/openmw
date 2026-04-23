@@ -173,6 +173,7 @@ namespace MWGui
 
         std::string_view getWindowIdForLua() const override { return "Dialogue"; }
         std::string getLatestRawText() const;
+        const std::vector<std::unique_ptr<DialogueText>>& getHistory() const { return mHistoryContents; }
 
     protected:
         void updateTopicsPane();

@@ -232,21 +232,29 @@ namespace MWLua
 
         api["screenSize"] = []() { return osg::Vec2f(Settings::video().mResolutionX, Settings::video().mResolutionY); };
 
-        // --- START functionality to get dialogue text ---
+        // --- START functionality to get dialogue text, filter out system text ---
         api["getDialogueText"] = []() -> std::string {
             auto wm = MWBase::Environment::get().getWindowManager();
             if (wm)
             {
-                // Get all windows associated with Dialogue mode
                 auto windows = wm->getGuiModeWindows(MWGui::GM_Dialogue);
                 if (!windows.empty())
                 {
-                    // The first window in the vector for GM_Dialogue is the DialogueWindow
-                    // We static_cast it because the vector returns the base class (WindowBase)
                     auto dialogueWindow = static_cast<MWGui::DialogueWindow*>(windows[0]);
-                    if (dialogueWindow)
+                    const auto& history = dialogueWindow->getHistory();
+                    
+                    for (auto it = history.rbegin(); it != history.rend(); ++it)
                     {
-                        return dialogueWindow->getLatestRawText();
+                        if (dynamic_cast<const MWGui::Response*>(it->get()))
+                        {
+                            // Get the actual numerical index in the history vector
+                            size_t index = std::distance(it, history.rend()) - 1;
+                            
+                            // Return the index combined with the text
+                            // Format: "INDEX|TEXT"
+                            return std::to_string(index) + "|" + (*it)->mText;
+                        }
+                        if (std::distance(history.rbegin(), it) > 2) break;
                     }
                 }
             }
