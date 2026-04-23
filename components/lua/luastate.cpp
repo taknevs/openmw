@@ -1,5 +1,9 @@
 #include "luastate.hpp"
 
+extern "C" {
+    int luaopen_socket_core(lua_State *L);
+}
+#include <iostream> // Ensure this is at the top of the file
 #ifndef NO_LUAJIT
 #include <luajit.h>
 #endif // NO_LUAJIT
@@ -53,7 +57,7 @@ namespace LuaUtil
 
     static const std::string safeFunctions[] = { "assert", "error", "ipairs", "next", "pairs", "pcall", "select",
         "tonumber", "tostring", "type", "unpack", "xpcall", "rawequal", "rawget", "rawset", "setmetatable" };
-    static const std::string safePackages[] = { "coroutine", "math", "string", "table", "utf8" };
+    static const std::string safePackages[] = { "coroutine", "math", "string", "table", "utf8", "socket" };
 
     static constexpr int64_t countHookStep = 1000;
 
@@ -189,6 +193,7 @@ namespace LuaUtil
             sol.open_libraries(sol::lib::base, sol::lib::coroutine, sol::lib::math, sol::lib::bit32, sol::lib::string,
                 sol::lib::table, sol::lib::os, sol::lib::debug);
 
+
 #ifndef NO_LUAJIT
             sol.open_libraries(sol::lib::jit);
 #endif // NO_LUAJIT
@@ -283,6 +288,35 @@ namespace LuaUtil
                 end
             )");
 
+
+            // ---------------------------------------------------------
+            lua_State* L = sol.lua_state();
+            
+            // 1. Get or create the package and preload tables safely
+            sol::table package = sol["package"].get_or_create<sol::table>();
+            sol::table preload = package["preload"].get_or_create<sol::table>();
+            
+            // 2. Register the loader
+            preload["socket"] = (lua_CFunction)luaopen_socket_core;
+
+            // 3. Initialize the table
+            lua_pushcfunction(L, luaopen_socket_core);
+            if (lua_pcall(L, 0, 1, 0) == 0) {
+                sol::object sockTable = sol::stack::pop<sol::object>(L);
+                
+                // Use get_or_create for openmw too, just in case
+                sol::table openmw = sol["openmw"].get_or_create<sol::table>();
+                openmw["socket"] = sockTable;
+                sol["openmw.socket"] = sockTable; 
+
+                Log(Debug::Info) << ">>> LuaSocket: Global Preload Complete.";
+            } else {
+                const char* err = lua_tostring(L, -1);
+                Log(Debug::Error) << ">>> LuaSocket: Failed to initialize: " << (err ? err : "Unknown error");
+                lua_pop(L, 1);
+            }
+            // ---------------------------------------------------------
+
             mSandboxEnv = sol::table(sol, sol::create);
             mSandboxEnv["_VERSION"] = sol["_VERSION"];
             for (const std::string& s : safeFunctions)
@@ -293,16 +327,34 @@ namespace LuaUtil
             }
             for (const std::string& s : safePackages)
             {
-                if (sol[s] == sol::nil)
+
+                // NEW DIAGNOSTIC: See what the loop is looking at
+                Log(Debug::Info) << ">>> Validating Safe Package: " << s;
+
+                if (s == "socket" && sol["openmw.socket"] != sol::nil)
+                {
+                    Log(Debug::Info) << ">>> Found socket! Wrapping as ReadOnly...";
+                    mCommonPackages[s] = mSandboxEnv[s] = makeReadOnly(sol["openmw.socket"]);
+                    continue; 
+                }
+
+                if (sol[s] == sol::nil) {
+                    // MODIFIED ERROR: Tell us exactly what is nil in the global state
+                    Log(Debug::Error) << "!!! BOOT FAILURE: " << s << " is nil in sol state.";
                     throw std::logic_error("Lua package not found: " + s);
+                }
+
                 mCommonPackages[s] = mSandboxEnv[s] = makeReadOnly(sol[s]);
             }
+
+   
             mSandboxEnv["getmetatable"] = sol["getSafeMetatable"];
             mCommonPackages["os"] = mSandboxEnv["os"]
                 = makeReadOnly(tableFromPairs<std::string_view, sol::function>(sol,
                     { { "date", sol["os"]["date"] }, { "difftime", sol["os"]["difftime"] },
                         { "time", sol["os"]["time"] } }));
         });
+
     }
 
     sol::table makeReadOnly(const sol::table& table, bool strictIndex)

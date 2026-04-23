@@ -311,3 +311,6 @@ if ((BUILD_COMPONENTS_TESTS OR BUILD_OPENCS_TESTS OR BUILD_OPENMW_TESTS) AND NOT
     add_library(GTest::GTest ALIAS gtest)
     add_library(GMock::GMock ALIAS gmock)
 endif()
+
+add_subdirectory(luasocket)
+set(LUASOCKET_LIBRARY luasocket PARENT_SCOPE)

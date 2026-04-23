@@ -609,6 +609,7 @@ target_link_libraries(components
     smhasher
     ${ICU_LIBRARIES}
     ZLIB::ZLIB
+    luasocket
     )
 
 if(yaml-cpp_VERSION VERSION_GREATER_EQUAL 0.8.0)

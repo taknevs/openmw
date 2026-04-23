@@ -98,7 +98,18 @@ static int base_open(lua_State *L) {
 \*-------------------------------------------------------------------------*/
 LUASOCKET_API int luaopen_socket_core(lua_State *L) {
     int i;
-    base_open(L);
-    for (i = 0; mod[i].name; i++) mod[i].func(L);
+    // 1. Force the base table to be created
+    base_open(L); 
+    
+    // 2. Open all sub-modules (tcp, udp, etc.) into that table
+    for (i = 0; mod[i].name; i++) {
+        mod[i].func(L);
+    }
+    
+    // 3. Final safety check: ensure there is actually a table at the top of the stack
+    if (!lua_istable(L, -1)) {
+        lua_newtable(L); 
+    }
+    
     return 1;
 }

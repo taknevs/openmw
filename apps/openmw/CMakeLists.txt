@@ -117,9 +117,6 @@ add_openmw_dir (mwbase
     )
 
 
-# Add the subdirectory so CMake processes it
-add_subdirectory(${CMAKE_SOURCE_DIR}/extern/luasocket extern/luasocket)
-
 # Main executable
 
 add_library(openmw-lib STATIC
@@ -177,7 +174,6 @@ target_link_libraries(openmw-lib
     "osg-ffmpeg-videoplayer"
     "oics"
     components
-    luasocket
 )
 
 if (MSVC AND PRECOMPILE_HEADERS_WITH_MSVC)
