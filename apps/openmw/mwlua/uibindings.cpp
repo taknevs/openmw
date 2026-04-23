@@ -17,6 +17,8 @@
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
+#include "../mwgui/dialogue.hpp"
+#include "../mwgui/mode.hpp"
 
 namespace MWLua
 {
@@ -229,6 +231,28 @@ namespace MWLua
         };
 
         api["screenSize"] = []() { return osg::Vec2f(Settings::video().mResolutionX, Settings::video().mResolutionY); };
+
+        // --- START functionality to get dialogue text ---
+        api["getDialogueText"] = []() -> std::string {
+            auto wm = MWBase::Environment::get().getWindowManager();
+            if (wm)
+            {
+                // Get all windows associated with Dialogue mode
+                auto windows = wm->getGuiModeWindows(MWGui::GM_Dialogue);
+                if (!windows.empty())
+                {
+                    // The first window in the vector for GM_Dialogue is the DialogueWindow
+                    // We static_cast it because the vector returns the base class (WindowBase)
+                    auto dialogueWindow = static_cast<MWGui::DialogueWindow*>(windows[0]);
+                    if (dialogueWindow)
+                    {
+                        return dialogueWindow->getLatestRawText();
+                    }
+                }
+            }
+            return std::string("");
+        };
+        // --- END functionality to get dialogue text ---
 
         api["_getAllUiModes"] = [](sol::this_state thisState) {
             sol::table res(thisState, sol::create);

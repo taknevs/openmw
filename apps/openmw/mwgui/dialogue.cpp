@@ -1039,4 +1039,14 @@ namespace MWGui
 
         return true;
     }
+
+    // --- Gets the text from the dialogue window ---
+    std::string DialogueWindow::getLatestRawText() const
+    {
+        if (!mHistoryContents.empty())
+        {
+            return mHistoryContents.back()->mText;
+        }
+        return "No dialogue history found.";
+    }
 }
